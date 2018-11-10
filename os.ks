@@ -24,6 +24,7 @@ global CRAFT_STATE_ANGLE_FROM_ORB_PROGRADE is "angle_from_orb".
 global CRAFT_STATE_ANGLE_FROM_SRF_PROGRADE is "angle_from_srf".
 global CRAFT_STATE_HEADING is "heading".
 global CRAFT_STATE_PITCH is "pitch".
+global CRAFT_STATE_LATERAL_DYNAMIC_PRESSURE is "lateral_q".
 
 
 function make_craft_state_struct {
@@ -52,6 +53,9 @@ function make_craft_state_struct {
 	craft_state:add(CRAFT_STATE_HEADING, ship_heading).
 	craft_state:add(CRAFT_STATE_PITCH, ship_pitch).
 
+	local lateral_q is sin(angle_from_srf) * ship:dynamicpressure.
+	craft_state:add(CRAFT_STATE_LATERAL_DYNAMIC_PRESSURE, lateral_q).
+
 	return craft_state.
 }
 
@@ -67,10 +71,12 @@ function print_craft_state {
 	local orb_angle is craft_state[CRAFT_STATE_ANGLE_FROM_ORB_PROGRADE].
 	local ship_heading is craft_state[CRAFT_STATE_HEADING].
 	local ship_pitch is craft_state[CRAFT_STATE_PITCH].
+	local lateral_q is craft_state[CRAFT_STATE_LATERAL_DYNAMIC_PRESSURE].
 
 	clearscreen.
-	print ("STATUS:             " + status_line) at (0, 0).
-	print ("Ship facing:        " + round(ship_heading, 2) + " " + round(ship_pitch, 2)) at (0, 3).
-	print ("Angle srf prograde: " + round(srf_angle, 2)) at (0, 4).
-	print ("Angle orb prograde: " + round(orb_angle, 2)) at (0, 5).
+	print("STATUS:             " + status_line) at (0, 0).
+	print("Ship facing:        " + round(ship_heading, 2) + " " + round(ship_pitch, 2)) at (0, 3).
+	print("Angle srf prograde: " + round(srf_angle, 2)) at (0, 4).
+	print("Angle orb prograde: " + round(orb_angle, 2)) at (0, 5).
+	print("Lateral Q:          " + round(lateral_q, 8)) at (0, 6).
 }
