@@ -1,5 +1,6 @@
 @LAZYGLOBAL OFF.
 
+global CRAFT_CONTROL_DIRECTOR_FUNC_NAME is "director".
 global CRAFT_CONTROL_GUIDANCE_FUNC_NAME is "guidance".
 global CRAFT_CONTROL_CONTROL_FUNC_NAME is "control".
 global CRAFT_CONTROL_MISC_FUNCS_NAME is "misc".
@@ -7,13 +8,15 @@ global CRAFT_CONTROL_MISC_FUNCS_NAME is "misc".
 
 function make_craft_control_struct {
 	parameter
+		flight_director_func,
 		guidance_func,
 		control_func,
 		misc_funcs.
 
 	local craft_control is lexicon().
-	craft_control:add(CRAFT_CONTROL_GUIDANCE_FUNC_NAME, guidance_func).
-	craft_control:add(CRAFT_CONTROL_CONTROL_FUNC_NAME, control_func).
+	craft_control:add(CRAFT_CONTROL_DIRECTOR_FUNC_NAME, flight_director_func@).
+	craft_control:add(CRAFT_CONTROL_GUIDANCE_FUNC_NAME, guidance_func@).
+	craft_control:add(CRAFT_CONTROL_CONTROL_FUNC_NAME, control_func@).
 	craft_control:add(CRAFT_CONTROL_MISC_FUNCS_NAME, misc_funcs).
 
 	return craft_control.
@@ -24,7 +27,7 @@ global CRAFT_STATE_ANGLE_FROM_ORB_PROGRADE is "angle_from_orb".
 global CRAFT_STATE_ANGLE_FROM_SRF_PROGRADE is "angle_from_srf".
 global CRAFT_STATE_HEADING is "heading".
 global CRAFT_STATE_PITCH is "pitch".
-global CRAFT_STATE_LATERAL_DYNAMIC_PRESSURE is "lateral_q".
+global CRAFT_STATE_LATERAL_AIR_PRESSURE is "lateral_pressure".
 
 
 function make_craft_state_struct {
@@ -53,8 +56,9 @@ function make_craft_state_struct {
 	craft_state:add(CRAFT_STATE_HEADING, ship_heading).
 	craft_state:add(CRAFT_STATE_PITCH, ship_pitch).
 
-	local lateral_q is sin(angle_from_srf) * ship:dynamicpressure.
-	craft_state:add(CRAFT_STATE_LATERAL_DYNAMIC_PRESSURE, lateral_q).
+	local total_pressure is ship:dynamicpressure + ship:body:atm:altitudepressure(ship:altitude).
+	local lateral_pressure is sin(angle_from_srf) * total_pressure.
+	craft_state:add(CRAFT_STATE_LATERAL_AIR_PRESSURE, lateral_pressure).
 
 	return craft_state.
 }
@@ -63,7 +67,9 @@ function make_craft_state_struct {
 function print_craft_state {
 	parameter
 		status_line,
-		craft_state.
+		craft_state,
+		desired_steering,
+		desired_throttle.
 
 	local ship_vector is ship:facing:forevector.
 
@@ -71,12 +77,13 @@ function print_craft_state {
 	local orb_angle is craft_state[CRAFT_STATE_ANGLE_FROM_ORB_PROGRADE].
 	local ship_heading is craft_state[CRAFT_STATE_HEADING].
 	local ship_pitch is craft_state[CRAFT_STATE_PITCH].
-	local lateral_q is craft_state[CRAFT_STATE_LATERAL_DYNAMIC_PRESSURE].
+	local lateral_pressure is craft_state[CRAFT_STATE_LATERAL_AIR_PRESSURE].
 
-	clearscreen.
 	print("STATUS:             " + status_line) at (0, 0).
 	print("Ship facing:        " + round(ship_heading, 2) + " " + round(ship_pitch, 2)) at (0, 3).
 	print("Angle srf prograde: " + round(srf_angle, 2)) at (0, 4).
 	print("Angle orb prograde: " + round(orb_angle, 2)) at (0, 5).
-	print("Lateral Q:          " + round(lateral_q, 8)) at (0, 6).
+	print("Lateral pressure:   " + round(lateral_pressure, 8)) at (0, 6).
+	print("Desired steering:   " + desired_steering) at (0, 7).
+	print("Desired throttle:   " + round(desired_throttle, 2)) at (0, 8).
 }
