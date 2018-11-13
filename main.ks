@@ -1,5 +1,8 @@
 @LAZYGLOBAL OFF.
 
+run stdlib.
+run os.
+
 
 global DIRECTOR_MODE_PRE_LAUNCH is "prelaunch".
 global DIRECTOR_MODE_CLEAR_TOWER is "tower".
@@ -17,7 +20,8 @@ global CURRENT_MODE is DIRECTOR_MODE_PRE_LAUNCH.
 global REQUESTED_MODE is DIRECTOR_MODE_PRE_LAUNCH.
 
 
-function control_func {
+function control_func_base {
+    parameter staging_enabled.
     parameter craft_state.
     parameter desired_steering.
     parameter desired_throttle.
@@ -31,10 +35,14 @@ function control_func {
         set STEERING_SETTING to desired_steering.
     }
 
-    if stage:resourceslex["liquidfuel"]:amount < 0.1 {
+    if staging_enabled and stage:resourceslex["liquidfuel"]:amount < 0.1 {
         stage.
     }
 }
+
+
+local staging_enabled_control_func is control_func_base@:bind(true).
+local staging_disabled_control_func is control_func_base@:bind(false).
 
 
 function guidance_off_the_pad {
@@ -69,10 +77,15 @@ function guidance_gravity_turn {
     local desired_throttle is 1.0.
     local desired_steering is ship:srfprograde.
 
-    if ship:orbit:apoapsis >= 90000 {
+    local coast_ap_altitude is 90000.
+    local orbit_prograde_start is 10000.
+    local orbit_prograde_end is 40000.
+
+    if ship:orbit:apoapsis >= coast_ap_altitude {
         set REQUESTED_MODE to DIRECTOR_MODE_COAST_TO_AP.
-    } else if ship:altitude >= 10000 and ship:altitude <= 40000 {
-        local coeff is (ship:altitude - 10000) / 30000.
+    } else if ship:altitude >= orbit_prograde_start and ship:altitude <= orbit_prograde_end {
+        local coeff is rescale_to_fraction_of_unity(
+            ship:altitude, orbit_prograde_start, orbit_prograde_end).
         local mixed_prograde is (
             (coeff * ship:prograde:forevector) + ((1 - coeff) * ship:srfprograde:forevector)).
         set desired_steering to mixed_prograde:normalized.
@@ -110,7 +123,7 @@ function guidance_circularize {
         set REQUESTED_MODE to DIRECTOR_MODE_DONE.
     } else if eta:periapsis < eta:apoapsis {
         // falling back, continue burning
-    } else if eta:apoapsis >= 20 and ship:orbit:periapsis >= 20000 {
+    } else if eta:apoapsis >= 20 and ship:orbit:periapsis >= -20000 {
         set REQUESTED_MODE to DIRECTOR_MODE_COAST_TO_AP.
     } else if eta:apoapsis >= 50 {
         set REQUESTED_MODE to DIRECTOR_MODE_COAST_TO_AP.
@@ -135,16 +148,31 @@ function flight_director {
     parameter desired_throttle.
 
     if REQUESTED_MODE <> CURRENT_MODE {
-        if REQUESTED_MODE = DIRECTOR_MODE_PITCH_PROGRAM {
+        if REQUESTED_MODE = DIRECTOR_MODE_CLEAR_TOWER {
+            sas off.
+            lock steering to STEERING_SETTING.
+            lock throttle to THROTTLE_SETTING.
+            stage.
+
+            set craft_control[CRAFT_CONTROL_CONTROL_FUNC_NAME] to staging_disabled_control_func@.
+            set craft_control[CRAFT_CONTROL_GUIDANCE_FUNC_NAME] to guidance_off_the_pad@.
+        } else if REQUESTED_MODE = DIRECTOR_MODE_PITCH_PROGRAM {
+            set craft_control[CRAFT_CONTROL_CONTROL_FUNC_NAME] to staging_disabled_control_func@.
             set craft_control[CRAFT_CONTROL_GUIDANCE_FUNC_NAME] to guidance_pitch_program@.
         } else if REQUESTED_MODE = DIRECTOR_MODE_GRAVITY_TURN {
+            set craft_control[CRAFT_CONTROL_CONTROL_FUNC_NAME] to staging_enabled_control_func@.
             set craft_control[CRAFT_CONTROL_GUIDANCE_FUNC_NAME] to guidance_gravity_turn@.
         } else if REQUESTED_MODE = DIRECTOR_MODE_COAST_TO_AP {
+            set craft_control[CRAFT_CONTROL_CONTROL_FUNC_NAME] to staging_disabled_control_func@.
             set craft_control[CRAFT_CONTROL_GUIDANCE_FUNC_NAME] to guidance_coast_to_ap@.
         } else if REQUESTED_MODE = DIRECTOR_MODE_CIRCULARIZE {
+            set craft_control[CRAFT_CONTROL_CONTROL_FUNC_NAME] to staging_enabled_control_func@.
             set craft_control[CRAFT_CONTROL_GUIDANCE_FUNC_NAME] to guidance_circularize@.
         } else if REQUESTED_MODE = DIRECTOR_MODE_DONE {
+            set craft_control[CRAFT_CONTROL_CONTROL_FUNC_NAME] to staging_disabled_control_func@.
             set craft_control[CRAFT_CONTROL_GUIDANCE_FUNC_NAME] to guidance_done@.
+        } else {
+            unreachable("unknown mode: " + REQUESTED_MODE).
         }
 
         set CURRENT_MODE to REQUESTED_MODE.
@@ -154,7 +182,6 @@ function flight_director {
 
 
 function main {
-    run os.
     set terminal:width to 50.
     set terminal:height to 30.
     set terminal:charheight to 22.
@@ -163,7 +190,7 @@ function main {
     local craft_control is make_craft_control_struct(
         flight_director@,
         guidance_off_the_pad@,
-        control_func@,
+        staging_disabled_control_func@,
         list()
     ).
 
@@ -172,11 +199,7 @@ function main {
     set STEERING_SETTING to desired_steering.
     set THROTTLE_SETTING to desired_throttle.
 
-    sas off.
-    lock steering to STEERING_SETTING.
-    lock throttle to THROTTLE_SETTING.
-    stage.
-    set CURRENT_MODE to DIRECTOR_MODE_CLEAR_TOWER.
+    set REQUESTED_MODE to DIRECTOR_MODE_CLEAR_TOWER.
 
     until false {
         local tick_start_seconds is time:seconds.
