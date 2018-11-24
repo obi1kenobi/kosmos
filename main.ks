@@ -103,6 +103,29 @@ function guidance_coast_to_ap {
         set desired_steering to ship:prograde.
     }
 
+    local min_desired_periapsis is min(90000, ship:orbit:apoapsis).
+    if not hasnode or nextnode:orbit:periapsis < min_desired_periapsis {
+        local prograde_manuever_dv is 0.0.
+        local maneuver_periapsis is ship:orbit:periapsis.
+        if hasnode {
+            set maneuver_periapsis to nextnode:orbit:periapsis.
+            set prograde_manuever_dv to nextnode:prograde.
+
+            remove nextnode.
+        }
+
+        if maneuver_periapsis <= 20000 {
+            set prograde_manuever_dv to prograde_manuever_dv + 10.0.
+        } else if maneuver_periapsis <= 70000 {
+            set prograde_manuever_dv to prograde_manuever_dv + 1.0.
+        } else {
+            set prograde_manuever_dv to prograde_manuever_dv + 0.1.
+        }
+
+        local new_node is node(time:seconds + eta:apoapsis, 0, 0, prograde_manuever_dv).
+        add new_node.
+    }
+
     if ship:orbit:apoapsis <= 80000 {
         set REQUESTED_MODE to DIRECTOR_MODE_GRAVITY_TURN.
     } else if ship:orbit:periapsis <= 20000 and eta:apoapsis <= 30 {
