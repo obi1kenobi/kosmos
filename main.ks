@@ -33,9 +33,14 @@ function control_func_base {
 
     set THROTTLE_SETTING to desired_throttle.
 
-    if craft_state[CRAFT_STATE_ANGLE_FROM_SRF_PROGRADE] >= 7.0 or
-       craft_state[CRAFT_STATE_LATERAL_AIR_PRESSURE] >= 0.05 {
-        set STEERING_SETTING to ship:facing.  // doesn't quite work
+    if ship:altitude >= ship:body:atm:height {
+        // We're above the atmosphere, point orbit prograde instead of surface prograde
+        // since there is no more air drag to worry about.
+        set STEERING_SETTING to desired_steering.
+    } else if (
+            craft_state[CRAFT_STATE_ANGLE_FROM_SRF_PROGRADE] >= 7.0 or
+            craft_state[CRAFT_STATE_LATERAL_AIR_PRESSURE] >= 0.05) {
+        set STEERING_SETTING to ship:facing.  // FIXME: this doesn't quite do the right thing
     } else {
         set STEERING_SETTING to desired_steering.
     }
@@ -206,6 +211,8 @@ function guidance_coast_to_ap {
         if eta_to_burn < 30 and kuniverse:timewarp:mode <> "physics" {
             set kuniverse:timewarp:warp to 0.
             set kuniverse:timewarp:mode to "physics".
+
+            set desired_steering to nextnode:deltav:normalized.
         }
 
         if eta_to_burn < 0.1 {
@@ -217,18 +224,23 @@ function guidance_coast_to_ap {
 }
 
 
-function guidance_circularize {
-    local desired_steering is ship:prograde.
+function guidance_prograde_node_burn {
+    assert(hasnode, "no maneuver node was found").
+
+    local desired_steering is nextnode:deltav:normalized.
     local desired_throttle is 1.0.
 
-    if ship:orbit:periapsis >= 90000 {
+    local remaining_dv is nextnode:deltav:mag.
+    local slow_maneuver_start_seconds is 1.5.
+
+    local allowed_prograde_dv_error is 0.1.
+    local prograde_component is vdot(nextnode:deltav, ship:prograde:forevector).
+
+    if prograde_component <= allowed_prograde_dv_error {
+        set desired_throttle to 0.0.
         set REQUESTED_MODE to DIRECTOR_MODE_DONE.
-    } else if eta:periapsis < eta:apoapsis {
-        // falling back, continue burning
-    } else if eta:apoapsis >= 20 and ship:orbit:periapsis >= -20000 {
-        set REQUESTED_MODE to DIRECTOR_MODE_COAST_TO_AP.
-    } else if eta:apoapsis >= 50 {
-        set REQUESTED_MODE to DIRECTOR_MODE_COAST_TO_AP.
+    } else if remaining_dv < ship:availablethrust * slow_maneuver_start_seconds {
+        set desired_throttle to 0.3.
     }
 
     return list(desired_steering, desired_throttle).
@@ -269,7 +281,7 @@ function flight_director {
             set craft_control[CRAFT_CONTROL_GUIDANCE_FUNC_NAME] to guidance_coast_to_ap@.
         } else if REQUESTED_MODE = DIRECTOR_MODE_CIRCULARIZE {
             set craft_control[CRAFT_CONTROL_CONTROL_FUNC_NAME] to staging_enabled_control_func@.
-            set craft_control[CRAFT_CONTROL_GUIDANCE_FUNC_NAME] to guidance_circularize@.
+            set craft_control[CRAFT_CONTROL_GUIDANCE_FUNC_NAME] to guidance_prograde_node_burn@.
         } else if REQUESTED_MODE = DIRECTOR_MODE_DONE {
             set craft_control[CRAFT_CONTROL_CONTROL_FUNC_NAME] to staging_disabled_control_func@.
             set craft_control[CRAFT_CONTROL_GUIDANCE_FUNC_NAME] to guidance_done@.
