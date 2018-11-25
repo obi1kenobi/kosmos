@@ -1,0 +1,32 @@
+{
+	"entries": [
+		"liquidEngine3", {
+			"entries": [
+				"title", "LV-909 \"Terrier\" Liquid Fuel Engine",
+				"type", "lf+lox",
+				"max_fuel_flow", 3.547,
+				"vacuum_isp", 345
+			],
+			"$type": "kOS.Safe.Encapsulation.Lexicon"
+		},
+		"liquidEngine2", {
+			"entries": [
+				"title", "LV-T45 \"Swivel\" Liquid Fuel Engine",
+				"type", "lf+lox",
+				"max_fuel_flow", 13.703,
+				"vacuum_isp", 320,
+			],
+			"$type": "kOS.Safe.Encapsulation.Lexicon"
+		},
+		"liquidEngine",  {
+			"entries": [
+				"title", "LV-T30 \"Reliant\" Liquid Fuel Engine",
+				"type", "lf+lox",
+				"max_fuel_flow", 15.789,
+				"vacuum_isp", 310
+			],
+			"$type": "kOS.Safe.Encapsulation.Lexicon"
+		}
+	],
+	"$type": "kOS.Safe.Encapsulation.Lexicon"
+}

@@ -39,11 +39,22 @@ function make_craft_history_entry {
 
 	local history is lexicon().
 
-	local timestamp is time:seconds.
-	local mass_at_ts is ship:mass * 1000.
-	local stage_number is stage:number.
-	local stage_liquid_fuel is stage:resourceslex["liquidfuel"]:amount.
-	local stage_oxidizer is stage:resourceslex["oxidizer"]:amount.
+	local captured_valid_data is false.
+
+	local timestamp is 0.
+	local mass_at_ts is 0.
+	local stage_number is 0.
+	local stage_liquid_fuel is 0.
+	local stage_oxidizer is 0.
+
+	until captured_valid_data {
+		set timestamp to time:seconds.
+		set mass_at_ts to ship:mass * 1000.
+		set stage_number to stage:number.
+		set stage_liquid_fuel to stage:resourceslex["liquidfuel"]:amount.
+		set stage_oxidizer to stage:resourceslex["oxidizer"]:amount.
+		set captured_valid_data to (timestamp = time:seconds).
+	}
 
 	history:add(CRAFT_HISTORY_TIMESTAMP, timestamp).
 	history:add(CRAFT_HISTORY_MASS_KG, mass_at_ts).

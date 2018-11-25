@@ -2,6 +2,7 @@
 
 run once stdlib.
 run once os.
+run once engine_info.
 
 
 global DIRECTOR_MODE_PRE_LAUNCH is "prelaunch".
@@ -18,6 +19,10 @@ global STEERING_SETTING is ship:facing.
 global STATUS_LINE is "nominal".
 global CURRENT_MODE is DIRECTOR_MODE_PRE_LAUNCH.
 global REQUESTED_MODE is DIRECTOR_MODE_PRE_LAUNCH.
+
+
+global CRAFT_INFO is readjson("current_craft_info.json").
+global CRAFT_INFO_STAGES is CRAFT_INFO["stages"].
 
 
 function control_func_base {
@@ -100,11 +105,22 @@ function guidance_coast_to_ap {
     local desired_throttle is 0.0.
 
     if ship:altitude >= ship:body:atm:height {
+        // We're above the atmosphere, point orbit prograde instead of surface prograde
+        // since there is no more air drag to worry about.
         set desired_steering to ship:prograde.
+    }
+
+    if ship:orbit:apoapsis <= 80000 {
+        // Our apoapsis has drifted too low, presumably because of air drag.
+        // Reset guidance back to gravity turn mode so we restart the engines and boost once more.
+        set REQUESTED_MODE to DIRECTOR_MODE_GRAVITY_TURN.
+        return list(desired_steering, desired_throttle).
     }
 
     local min_desired_periapsis is min(90000, ship:orbit:apoapsis).
     if not hasnode or nextnode:orbit:periapsis < min_desired_periapsis {
+        // Plan the circularization manuever, since there either currently isn't one
+        // or the existing one isn't satisfactory.
         local prograde_manuever_dv is 0.0.
         local maneuver_periapsis is ship:orbit:periapsis.
         if hasnode {
@@ -116,9 +132,9 @@ function guidance_coast_to_ap {
 
         if maneuver_periapsis <= -50000 {
             set prograde_manuever_dv to prograde_manuever_dv + 100.0.
-        } else if maneuver_periapsis <= 20000 {
+        } else if maneuver_periapsis <= 30000 {
             set prograde_manuever_dv to prograde_manuever_dv + 10.0.
-        } else if maneuver_periapsis <= 70000 {
+        } else if maneuver_periapsis <= 80000 {
             set prograde_manuever_dv to prograde_manuever_dv + 1.0.
         } else {
             set prograde_manuever_dv to prograde_manuever_dv + 0.1.
@@ -126,14 +142,75 @@ function guidance_coast_to_ap {
 
         local new_node is node(time:seconds + eta:apoapsis, 0, 0, prograde_manuever_dv).
         add new_node.
-    }
+    } else {
+        // Estimate the burn time for the manuever, and switch to
+        // circularization mode at the right time.
+        local manuever_dv is nextnode:deltav:mag.
+        local total_burn_time is 0.0.
 
-    if ship:orbit:apoapsis <= 80000 {
-        set REQUESTED_MODE to DIRECTOR_MODE_GRAVITY_TURN.
-    } else if ship:orbit:periapsis <= 20000 and eta:apoapsis <= 30 {
-        set REQUESTED_MODE to DIRECTOR_MODE_CIRCULARIZE.
-    } else if eta:apoapsis <= 5 {
-        set REQUESTED_MODE to DIRECTOR_MODE_CIRCULARIZE.
+        local stage_number is stage:number.
+        local stage_engines is CRAFT_INFO_STAGES[stage_number].
+
+        local pre_burn_mass is ship:mass * 1000.  // convert to kg
+        local stage_max_flow_rate is get_engines_max_mass_flow_rate(stage_engines).
+        local stage_max_burn_time is get_engines_max_burn_time(stage_engines, stage:resourceslex).
+        local stage_thrust is get_engines_max_vacuum_thrust(stage_engines).
+
+        local needed_stage_burn_time is calculate_single_stage_burn_time(
+            stage_thrust, pre_burn_mass, stage_max_flow_rate, manuever_dv).
+
+        local new_status_line is "".
+
+        if needed_stage_burn_time <= stage_max_burn_time {
+            set total_burn_time to needed_stage_burn_time.
+            set new_status_line to "single stage burn of " + round(needed_stage_burn_time, 3).
+        } else {
+            assert(
+                stage_number > 0,
+                "need another stage to circularize orbit: " +
+                round(needed_stage_burn_time, 3) + " > " + round(stage_max_burn_time, 3)).
+            local next_stage_engines is CRAFT_INFO_STAGES[stage_number - 1].
+            assert(
+                next_stage_engines:length > 0,
+                "no engines on next stage: " + next_stage_engines).
+
+            local post_stage_burn_mass is (
+                pre_burn_mass - (stage_max_flow_rate * stage_max_burn_time)).
+            local applied_dv is calculate_delta_v(
+                stage_thrust, pre_burn_mass, post_stage_burn_mass, stage_max_flow_rate).
+            local remaining_dv is manuever_dv - applied_dv.
+            assert(
+                remaining_dv > 0.0,
+                "remaining delta v was not positive: " + remaining_dv).
+
+            local next_max_flow_rate is get_engines_max_mass_flow_rate(next_stage_engines).
+            local next_thrust is get_engines_max_vacuum_thrust(next_stage_engines).
+
+            // FIXME: account for discarded parts when staging, since this includes the mass
+            //        of the hardware that would be discarded by staging.
+            local next_pre_burn_mass is post_stage_burn_mass.
+
+            local next_burn_time is calculate_single_stage_burn_time(
+                next_thrust, post_stage_burn_mass, next_max_flow_rate, remaining_dv).
+            set total_burn_time to stage_max_burn_time + next_burn_time.
+
+            set new_status_line to "two stage burn of " + round(total_burn_time, 3).
+        }
+
+        local node_eta is nextnode:eta.
+        local eta_to_burn is node_eta - (total_burn_time / 2).
+
+        set STATUS_LINE to new_status_line + "; eta to burn: " + round(eta_to_burn, 3).
+
+        // Make sure to kill any timewarp a bit before the burn.
+        if eta_to_burn < 30 and kuniverse:timewarp:mode <> "physics" {
+            set kuniverse:timewarp:warp to 0.
+            set kuniverse:timewarp:mode to "physics".
+        }
+
+        if eta_to_burn < 0.1 {
+            set REQUESTED_MODE to DIRECTOR_MODE_CIRCULARIZE.
+        }
     }
 
     return list(desired_steering, desired_throttle).
@@ -201,7 +278,7 @@ function flight_director {
         }
 
         set CURRENT_MODE to REQUESTED_MODE.
-        set STATUS_LINE to CURRENT_MODE + "        ".
+        set STATUS_LINE to CURRENT_MODE + "                                                  ".
     }
 }
 

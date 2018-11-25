@@ -1,10 +1,6 @@
 @LAZYGLOBAL OFF.
 
 
-global DENSITY_LIQUID_FUEL is 5.0.
-global DENSITY_OXIDIZER is 5.0.
-
-
 function unreachable {
 	parameter message.
 
@@ -60,6 +56,8 @@ function calculate_ts_rate {
 
 function calculate_single_stage_burn_time {
 	parameter thrust, pre_burn_mass, mass_flow_rate, delta_v.
+
+	assert(thrust > 0.0, "thrust must be positive, but was: " + thrust).
 
 	// First, apply the rocket equation to calculate the necessary mass fraction for the burn.
 	local ln_mass_fraction is (delta_v * mass_flow_rate) / thrust.
