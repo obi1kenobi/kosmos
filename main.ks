@@ -1,7 +1,7 @@
 @LAZYGLOBAL OFF.
 
-run stdlib.
-run os.
+run once stdlib.
+run once os.
 
 
 global DIRECTOR_MODE_PRE_LAUNCH is "prelaunch".
@@ -114,7 +114,9 @@ function guidance_coast_to_ap {
             remove nextnode.
         }
 
-        if maneuver_periapsis <= 20000 {
+        if maneuver_periapsis <= -50000 {
+            set prograde_manuever_dv to prograde_manuever_dv + 100.0.
+        } else if maneuver_periapsis <= 20000 {
             set prograde_manuever_dv to prograde_manuever_dv + 10.0.
         } else if maneuver_periapsis <= 70000 {
             set prograde_manuever_dv to prograde_manuever_dv + 1.0.
@@ -216,6 +218,7 @@ function main {
         staging_disabled_control_func@,
         list()
     ).
+    local craft_history is list(make_craft_history_entry(THROTTLE_SETTING)).
 
     local desired_steering is ship:up.
     local desired_throttle is 1.0.
@@ -225,9 +228,10 @@ function main {
     set REQUESTED_MODE to DIRECTOR_MODE_CLEAR_TOWER.
 
     until false {
-        local tick_start_seconds is time:seconds.
+        local craft_history_entry is make_craft_history_entry(THROTTLE_SETTING).
+        craft_history:add(craft_history_entry).
 
-        local craft_state is make_craft_state_struct().
+        local craft_state is make_craft_state_struct(craft_history).
         craft_control[CRAFT_CONTROL_DIRECTOR_FUNC_NAME](
             craft_control, craft_state, desired_steering, desired_throttle).
 
@@ -237,7 +241,7 @@ function main {
         craft_control[CRAFT_CONTROL_CONTROL_FUNC_NAME](
             craft_state, desired_steering, desired_throttle).
 
-        if time:seconds <> tick_start_seconds {
+        if time:seconds <> craft_history_entry[CRAFT_HISTORY_TIMESTAMP] {
             // set STATUS_LINE to "tick time exceeded".
             //hudtext("tick time exceeded", 1, 2, 22, red, false).
         }
