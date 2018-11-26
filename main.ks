@@ -22,9 +22,6 @@ global CURRENT_MODE is DIRECTOR_MODE_PRE_LAUNCH.
 global REQUESTED_MODE is DIRECTOR_MODE_PRE_LAUNCH.
 
 
-global CRAFT_INFO is make_craft_info().
-
-
 function control_func_base {
     parameter staging_enabled.
     parameter craft_state.
@@ -45,8 +42,20 @@ function control_func_base {
         set STEERING_SETTING to desired_steering.
     }
 
-    if staging_enabled and stage:resourceslex["liquidfuel"]:amount < 0.1 {
-        stage.
+    if staging_enabled {
+        local resourceslex is stage:resourceslex.
+
+        local liquid_fuel is resourceslex["liquidfuel"].
+        local should_stage_for_liquid_fuel is (
+            liquid_fuel:amount < 0.1 and liquid_fuel:capacity > 0.0).
+
+        local solid_fuel is resourceslex["solidfuel"].
+        local should_stage_for_solid_fuel is (
+            solid_fuel:amount < 0.1 and solid_fuel:capacity > 0.0).
+
+        if should_stage_for_liquid_fuel or should_stage_for_solid_fuel {
+            stage_and_refresh_info().
+        }
     }
 }
 
@@ -99,6 +108,8 @@ function guidance_gravity_turn {
         local mixed_prograde is (
             (coeff * ship:prograde:forevector) + ((1 - coeff) * ship:srfprograde:forevector)).
         set desired_steering to mixed_prograde:normalized.
+    } else if ship:altitude > orbit_prograde_end {
+        set desired_steering to ship:prograde.
     }
 
     return list(desired_steering, desired_throttle).
@@ -168,7 +179,10 @@ function guidance_coast_to_ap {
 
         if needed_stage_burn_time <= stage_max_burn_time {
             set total_burn_time to needed_stage_burn_time.
-            set new_status_line to "single stage burn of " + round(needed_stage_burn_time, 3).
+            set new_status_line to (
+                "single stage burn of " + round(needed_stage_burn_time, 3) +
+                "s (" + round(manuever_dv, 3) + "m/s)"
+            ).
         } else {
             local next_stage_number is stage_number - 1.
             assert(
@@ -192,13 +206,19 @@ function guidance_coast_to_ap {
             local next_max_flow_rate is get_engines_max_mass_flow_rate(next_stage_engines).
             local next_thrust is get_engines_max_vacuum_thrust(next_stage_engines).
 
+            // FIXME: This number is wrong. Tanks consumed by the engine in stage 2
+            // (the first engine to be lit) get counted in stage 1 (the upper stage) instead.
             local next_pre_burn_mass is CRAFT_INFO[CRAFT_INFO_CUM_MASS_BY_STAGE][next_stage_number].
 
             local next_burn_time is calculate_single_stage_burn_time(
-                next_thrust, post_stage_burn_mass, next_max_flow_rate, remaining_dv).
+                next_thrust, next_pre_burn_mass, next_max_flow_rate, remaining_dv).
             set total_burn_time to stage_max_burn_time + next_burn_time.
 
-            set new_status_line to "two stage burn of " + round(total_burn_time, 3).
+            set new_status_line to (
+                "two stage burn of " + round(total_burn_time, 3) + "s: " +
+                round(stage_max_burn_time, 3) + "s (" + round(applied_dv, 3) + "m/s) + " +
+                round(next_burn_time, 3) + "s (" + round(remaining_dv, 3) + "m/s)"
+            ).
         }
 
         local node_eta is nextnode:eta.
@@ -210,7 +230,9 @@ function guidance_coast_to_ap {
         if eta_to_burn < 30 and kuniverse:timewarp:mode <> "physics" {
             set kuniverse:timewarp:warp to 0.
             set kuniverse:timewarp:mode to "physics".
+        }
 
+        if eta_to_burn < 30 {
             set desired_steering to nextnode:deltav:normalized.
         }
 

@@ -1,6 +1,21 @@
 @LAZYGLOBAL OFF.
 
 run once stdlib.
+run once craft_info.
+
+
+global CRAFT_INFO is make_craft_info().
+
+
+function stage_and_refresh_info {
+    stage.
+
+    until stage:ready {
+        wait 0.
+    }
+
+    set CRAFT_INFO to make_craft_info().
+}
 
 
 global CRAFT_CONTROL_DIRECTOR_FUNC_NAME is "director".

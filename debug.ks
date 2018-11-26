@@ -13,11 +13,10 @@ function main {
     local craft_info is make_craft_info().
     print craft_info.
 
-    local first_stage_engines is craft_info[CRAFT_INFO_STAGE_ENGINES][2].
-
-    print first_stage_engines[0]:name.
-    print get_engine_consumption(first_stage_engines[0]).
-    print get_engines_max_mass_flow_rate(first_stage_engines).
+    print ship:drymass * 1000.
+    print ship:mass * 1000.
+    print ship:wetmass * 1000.
+    print get_engines_max_vacuum_thrust(craft_info[CRAFT_INFO_STAGE_ENGINES][1]).
 }
 
 
