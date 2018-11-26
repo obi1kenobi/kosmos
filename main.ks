@@ -3,6 +3,7 @@
 run once stdlib.
 run once os.
 run once engine_info.
+run once craft_info.
 
 
 global DIRECTOR_MODE_PRE_LAUNCH is "prelaunch".
@@ -21,8 +22,7 @@ global CURRENT_MODE is DIRECTOR_MODE_PRE_LAUNCH.
 global REQUESTED_MODE is DIRECTOR_MODE_PRE_LAUNCH.
 
 
-global CRAFT_INFO is readjson("current_craft_info.json").
-global CRAFT_INFO_STAGES is CRAFT_INFO["stages"].
+global CRAFT_INFO is make_craft_info().
 
 
 function control_func_base {
@@ -154,7 +154,7 @@ function guidance_coast_to_ap {
         local total_burn_time is 0.0.
 
         local stage_number is stage:number.
-        local stage_engines is CRAFT_INFO_STAGES[stage_number].
+        local stage_engines is CRAFT_INFO[CRAFT_INFO_STAGE_ENGINES][stage_number].
 
         local pre_burn_mass is ship:mass * 1000.  // convert to kg
         local stage_max_flow_rate is get_engines_max_mass_flow_rate(stage_engines).
@@ -170,11 +170,12 @@ function guidance_coast_to_ap {
             set total_burn_time to needed_stage_burn_time.
             set new_status_line to "single stage burn of " + round(needed_stage_burn_time, 3).
         } else {
+            local next_stage_number is stage_number - 1.
             assert(
-                stage_number > 0,
+                next_stage_number >= 0,
                 "need another stage to circularize orbit: " +
                 round(needed_stage_burn_time, 3) + " > " + round(stage_max_burn_time, 3)).
-            local next_stage_engines is CRAFT_INFO_STAGES[stage_number - 1].
+            local next_stage_engines is CRAFT_INFO[CRAFT_INFO_STAGE_ENGINES][next_stage_number].
             assert(
                 next_stage_engines:length > 0,
                 "no engines on next stage: " + next_stage_engines).
@@ -191,9 +192,7 @@ function guidance_coast_to_ap {
             local next_max_flow_rate is get_engines_max_mass_flow_rate(next_stage_engines).
             local next_thrust is get_engines_max_vacuum_thrust(next_stage_engines).
 
-            // FIXME: account for discarded parts when staging, since this includes the mass
-            //        of the hardware that would be discarded by staging.
-            local next_pre_burn_mass is post_stage_burn_mass.
+            local next_pre_burn_mass is CRAFT_INFO[CRAFT_INFO_CUM_MASS_BY_STAGE][next_stage_number].
 
             local next_burn_time is calculate_single_stage_burn_time(
                 next_thrust, post_stage_burn_mass, next_max_flow_rate, remaining_dv).

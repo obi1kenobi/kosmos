@@ -23,8 +23,9 @@ global ENGINE_INFO is readjson("engines.json").
 
 
 function get_engine_consumption {
-	parameter engine_name.
+	parameter engine_part.
 
+	local engine_name is engine_part:name.
 	local engine_data is ENGINE_INFO[engine_name].
 
 	local fuel_flow is 0.0.
@@ -51,8 +52,8 @@ function get_engines_max_mass_flow_rate {
 
 	local total_mass_flow_rate is 0.0.
 
-	for engine_name in engine_list {
-		local consumption is get_engine_consumption(engine_name).
+	for engine_part in engine_list {
+		local consumption is get_engine_consumption(engine_part).
 
 		set total_mass_flow_rate to total_mass_flow_rate + (
 			(consumption[0] * DENSITY_LIQUID_FUEL) +
@@ -74,16 +75,16 @@ function get_engines_max_burn_time {
 		resourceslex["monopropellant"]:amount
 	).
 
-	for engine_name in engine_list {
-		local consumption is get_engine_consumption(engine_name).
+	for engine_part in engine_list {
+		local consumption is get_engine_consumption(engine_part).
 
-		from {local i is 0.} until i > 2 step {set i to i + 1.} do {
+		for i in range(3) {
 			set total_consumption[i] to total_consumption[i] + consumption[i].
 		}
 	}
 
 	local max_burn_time is -1.0.
-	from {local i is 0.} until i > 2 step {set i to i + 1.} do {
+	for i in range(3) {
 		if total_consumption[i] > 0.0 {
 			local burn_time is total_resources[i] / total_consumption[i].
 			if max_burn_time < 0 or burn_time < max_burn_time {
@@ -99,10 +100,11 @@ function get_engines_max_vacuum_thrust {
 	parameter engine_list.
 
 	local total_thrust is 0.0.
-	for engine_name in engine_list {
+	for engine_part in engine_list {
+		local engine_name is engine_part:name.
 		local engine_data is ENGINE_INFO[engine_name].
 		local exhaust_speed is engine_data[ENGINE_INFO_VACUUM_ISP] * 9.81.
-		local flow_rate is get_engines_max_mass_flow_rate(list(engine_name)).
+		local flow_rate is get_engines_max_mass_flow_rate(list(engine_part)).
 
 		set total_thrust to total_thrust + (exhaust_speed * flow_rate).
 	}
