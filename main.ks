@@ -206,8 +206,8 @@ function guidance_coast_to_ap {
             local next_max_flow_rate is get_engines_max_mass_flow_rate(next_stage_engines).
             local next_thrust is get_engines_max_vacuum_thrust(next_stage_engines).
 
-            // FIXME: This number is wrong. Tanks consumed by the engine in stage 2
-            // (the first engine to be lit) get counted in stage 1 (the upper stage) instead.
+            // FIXME: This number assumes that the next stage is entirely unused.
+            //        This is an invalid assumption, e.g. in Soyuz-like staging.
             local next_pre_burn_mass is CRAFT_INFO[CRAFT_INFO_CUM_MASS_BY_STAGE][next_stage_number].
 
             local next_burn_time is calculate_single_stage_burn_time(
@@ -252,7 +252,7 @@ function guidance_prograde_node_burn {
     local desired_throttle is 1.0.
 
     local remaining_dv is nextnode:deltav:mag.
-    local slow_maneuver_start_seconds is 1.5.
+    local slow_maneuver_start_seconds is 1.0.
 
     local allowed_prograde_dv_error is 0.1.
     local prograde_component is vdot(nextnode:deltav, ship:prograde:forevector).
@@ -260,7 +260,7 @@ function guidance_prograde_node_burn {
     if prograde_component <= allowed_prograde_dv_error {
         set desired_throttle to 0.0.
         set REQUESTED_MODE to DIRECTOR_MODE_DONE.
-    } else if remaining_dv < ship:availablethrust * slow_maneuver_start_seconds {
+    } else if remaining_dv < (ship:availablethrust * slow_maneuver_start_seconds) {
         set desired_throttle to 0.3.
     }
 

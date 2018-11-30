@@ -10,6 +10,8 @@ global CRAFT_INFO_WET_MASS_BY_STAGE is "wet_mass".
 global CRAFT_INFO_CUM_MASS_BY_STAGE is "cum_mass".
 global CRAFT_INFO_STAGE_ENGINES is "engines".
 
+global PART_MODULE_DECOUPLER is "ModuleDecouple".
+
 
 function make_craft_info {
     local current_stage is stage:number.
@@ -28,15 +30,19 @@ function make_craft_info {
         stage_engines:add(list()).
     }
 
-    for part_info in ship:parts {
-        local stage_num is part_info:stage.
+    local part_uid_to_stage is lexicon().
+    local root_part_stage_number is -1.
+    assert(
+        ship:rootpart:stage = root_part_stage_number,
+        "Root part was not in stage -1, but was in " + ship:rootpart:stage).
+    _recursively_calculate_stage_masses(
+        part_uid_to_stage, dry_masses_per_stage, wet_masses_per_stage,
+        ship:rootpart, root_part_stage_number).
 
-        // Convert masses to kg, since they are listed in tons.
-        set dry_masses_per_stage[stage_num] to (
-            dry_masses_per_stage[stage_num] + (part_info:drymass * 1000)).
-        set wet_masses_per_stage[stage_num] to (
-            wet_masses_per_stage[stage_num] + (part_info:wetmass * 1000)).
-    }
+    assert(
+        ship:parts:length = part_uid_to_stage:length,
+        "Ship part count did not match visited part count: " +
+        ship:parts:length + " <> " + part_uid_to_stage:length).
 
     set cum_masses_per_stage[-1] to wet_masses_per_stage[-1].
     for i in range(current_stage + 1) {
@@ -56,4 +62,35 @@ function make_craft_info {
         CRAFT_INFO_WET_MASS_BY_STAGE, wet_masses_per_stage,
         CRAFT_INFO_CUM_MASS_BY_STAGE, cum_masses_per_stage,
         CRAFT_INFO_STAGE_ENGINES, stage_engines).
+}
+
+
+function _recursively_calculate_stage_masses {
+    parameter part_uid_to_stage, dry_masses_per_stage, wet_masses_per_stage,
+              current_part, current_stage.
+
+    set part_uid_to_stage[current_part:uid] to current_stage.
+
+    if current_part:hasphysics {
+        // Convert masses to kg, since they are listed in tons.
+        set dry_masses_per_stage[current_stage] to (
+            dry_masses_per_stage[current_stage] + (current_part:drymass * 1000)).
+        set wet_masses_per_stage[current_stage] to (
+            wet_masses_per_stage[current_stage] + (current_part:wetmass * 1000)).
+    }
+
+    for part_info in current_part:children {
+        if not part_uid_to_stage:haskey(part_info:uid) {
+            local part_stage is current_stage.
+            if part_info:hasmodule(PART_MODULE_DECOUPLER) {
+                // Decouplers activated in stage X are detached when stage X is active.
+                // Therefore, they only contribute their mass to stage X+1, and not stage X.
+                set part_stage to part_info:stage + 1.
+            }
+
+            _recursively_calculate_stage_masses(
+                part_uid_to_stage, dry_masses_per_stage, wet_masses_per_stage,
+                part_info, part_stage).
+        }
+    }
 }
