@@ -11,6 +11,7 @@ global CRAFT_INFO_CUM_MASS_BY_STAGE is "cum_mass".
 global CRAFT_INFO_STAGE_ENGINES is "engines".
 
 global PART_MODULE_DECOUPLER is "ModuleDecouple".
+global PART_MODULE_ANCHORED_DECOUPLER is "ModuleAnchoredDecoupler".
 
 
 function make_craft_info {
@@ -82,7 +83,11 @@ function _recursively_calculate_stage_masses {
     for part_info in current_part:children {
         if not part_uid_to_stage:haskey(part_info:uid) {
             local part_stage is current_stage.
-            if part_info:hasmodule(PART_MODULE_DECOUPLER) {
+            local is_decoupler is (
+                part_info:hasmodule(PART_MODULE_DECOUPLER) or
+                part_info:hasmodule(PART_MODULE_ANCHORED_DECOUPLER)
+            ).
+            if is_decoupler {
                 // Decouplers activated in stage X are detached when stage X is active.
                 // Therefore, they only contribute their mass to stage X+1, and not stage X.
                 set part_stage to part_info:stage + 1.
