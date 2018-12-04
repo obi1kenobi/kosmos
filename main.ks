@@ -4,6 +4,7 @@ run once stdlib.
 run once os.
 run once engine_info.
 run once craft_info.
+run once logging.
 
 
 global DIRECTOR_MODE_PRE_LAUNCH is "prelaunch".
@@ -14,9 +15,6 @@ global DIRECTOR_MODE_COAST_TO_AP is "coast".
 global DIRECTOR_MODE_CIRCULARIZE is "circular".
 global DIRECTOR_MODE_DONE is "done".
 
-
-global THROTTLE_SETTING is 0.0.
-global STEERING_SETTING is ship:facing.
 global STATUS_LINE is "nominal".
 global CURRENT_MODE is DIRECTOR_MODE_PRE_LAUNCH.
 global REQUESTED_MODE is DIRECTOR_MODE_PRE_LAUNCH.
@@ -317,6 +315,12 @@ function flight_director {
 
 
 function main {
+    local main_loop_logger is get_logger("main_loop").
+    main_loop_logger("Initializing...").
+
+    local craft_state_logger is get_logger("craft_state").
+    local craft_guidance_logger is get_logger("guidance").
+
     set terminal:width to 50.
     set terminal:height to 30.
     set terminal:charheight to 22.
@@ -342,20 +346,22 @@ function main {
         craft_history:add(craft_history_entry).
 
         local craft_state is make_craft_state_struct(craft_history).
+        craft_state_logger(craft_state).
+
         craft_control[CRAFT_CONTROL_DIRECTOR_FUNC_NAME](
             craft_control, craft_state, desired_steering, desired_throttle).
 
         local guidance_info is craft_control[CRAFT_CONTROL_GUIDANCE_FUNC_NAME]().
+        craft_guidance_logger(guidance_info).
         set desired_steering to guidance_info[0].
         set desired_throttle to guidance_info[1].
         craft_control[CRAFT_CONTROL_CONTROL_FUNC_NAME](
             craft_state, desired_steering, desired_throttle).
 
-        if time:seconds <> craft_history_entry[CRAFT_HISTORY_TIMESTAMP] {
-            // set STATUS_LINE to "tick time exceeded".
-            //hudtext("tick time exceeded", 1, 2, 22, red, false).
-        }
         print_craft_state(status_line, craft_state, desired_steering, desired_throttle).
+
+        local loop_time is time:seconds - craft_history_entry[CRAFT_HISTORY_TIMESTAMP].
+        main_loop_logger("Loop time: " + round(loop_time, 3)).
 
         wait 0.
     }

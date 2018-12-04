@@ -6,6 +6,9 @@ run once craft_info.
 
 global CRAFT_INFO is make_craft_info().
 
+global THROTTLE_SETTING is 0.0.
+global STEERING_SETTING is ship:facing.
+
 
 function stage_and_refresh_info {
     stage.
@@ -88,6 +91,7 @@ global CRAFT_STATE_HEADING is "heading".
 global CRAFT_STATE_PITCH is "pitch".
 global CRAFT_STATE_LATERAL_AIR_PRESSURE is "lateral_pressure".
 global CRAFT_STATE_MASS_FLOW_RATE is "mass_flow_rate".
+global CRAFT_STATE_STEERING_ERROR is "steering_error".
 
 
 function make_craft_state_struct {
@@ -96,6 +100,13 @@ function make_craft_state_struct {
     local craft_state is lexicon().
 
     local ship_vector is ship:facing:forevector.
+    local steering_vector is STEERING_SETTING.
+    if steering_vector:istype("Direction") {
+        set steering_vector to steering_vector:forevector.
+    }
+    local steering_error is vectorangle(ship_vector, steering_vector).
+    craft_state:add(CRAFT_STATE_STEERING_ERROR, steering_error).
+
     local srf_prograde_vector is ship:srfprograde:forevector.
     local orb_prograde_vector is ship:prograde:forevector.
 
@@ -150,6 +161,7 @@ function print_craft_state {
     local ship_pitch is craft_state[CRAFT_STATE_PITCH].
     local lateral_pressure is craft_state[CRAFT_STATE_LATERAL_AIR_PRESSURE].
     local mass_flow_rate is craft_state[CRAFT_STATE_MASS_FLOW_RATE].
+    local steering_error is craft_state[CRAFT_STATE_STEERING_ERROR].
 
     print("STATUS:             " + status_line) at (0, 0).
     print("Ship facing:        " + round(ship_heading, 2) + " " + round(ship_pitch, 2)) at (0, 3).
@@ -159,4 +171,5 @@ function print_craft_state {
     print("Desired steering:   " + desired_steering) at (0, 7).
     print("Desired throttle:   " + round(desired_throttle, 2)) at (0, 8).
     print("Mass flow rate:     " + round(mass_flow_rate, 6)) at (0, 9).
+    print("Steering error:     " + round(steering_error, 2)) at (0, 10).
 }

@@ -2,6 +2,10 @@
 
 run once stdlib.
 run once engine_info.
+run once logging.
+
+
+local _craft_info_logger is get_logger("craft_info").
 
 
 global CRAFT_INFO_MAX_STAGE_NUM is "max_stage_num".
@@ -57,12 +61,15 @@ function make_craft_info {
         stage_engines[stage_num]:add(engine_part).
     }
 
-    return lexicon(
+    local result is lexicon(
         CRAFT_INFO_MAX_STAGE_NUM, current_stage,
         CRAFT_INFO_DRY_MASS_BY_STAGE, dry_masses_per_stage,
         CRAFT_INFO_WET_MASS_BY_STAGE, wet_masses_per_stage,
         CRAFT_INFO_CUM_MASS_BY_STAGE, cum_masses_per_stage,
         CRAFT_INFO_STAGE_ENGINES, stage_engines).
+
+    _craft_info_logger(result).
+    return result.
 }
 
 

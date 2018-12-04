@@ -13,9 +13,6 @@ run once logging.
 function main {
     //local craft_info is make_craft_info().
     //print craft_info.
-
-    initialize_default_logging().
-
     local logger is get_logger("foobar").
 
     logger("hello world!").

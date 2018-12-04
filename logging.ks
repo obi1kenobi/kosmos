@@ -10,13 +10,6 @@ global UNIFIED_LOGGER_NAME is "unified".
 global LOG_EXTENSION is ".txt".
 
 
-function initialize_default_logging {
-    if not exists(DEFAULT_LOGGING_PATH) {
-        createdir(DEFAULT_LOGGING_PATH).
-    }
-}
-
-
 function get_logger_at_path {
     parameter logger_path, logger_name.
 
@@ -49,3 +42,11 @@ function get_logger {
 
     return get_logger_at_path(DEFAULT_LOGGING_PATH, logger_name)@.
 }
+
+
+local function _initialize_default_logging {
+    if not exists(DEFAULT_LOGGING_PATH) {
+        createdir(DEFAULT_LOGGING_PATH).
+    }
+}
+_initialize_default_logging().
