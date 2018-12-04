@@ -84,6 +84,8 @@ function plan_orbital_insertion_has_converged {
 function plan_orbital_insertion_add_node {
     parameter dv_bounds.
 
+    assert(allnodes:length = 0, "Expected no maneuver nodes, but found: " + allnodes).
+
     // The upper bound is guaranteed to produce an orbit that is at least as high as desired.
     // This is why we use the upper bound exclusively when setting the maneuver node.
     local next_node is node(time:seconds + eta:apoapsis, 0, 0, dv_bounds[1]).
