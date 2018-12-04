@@ -86,7 +86,6 @@ function plan_orbital_insertion_add_node {
 
     // The upper bound is guaranteed to produce an orbit that is at least as high as desired.
     // This is why we use the upper bound exclusively when setting the maneuver node.
-    local dv_mid is dv_bounds[1].
-    local next_node is node(time:seconds + eta:apoapsis, 0, 0, dv_mid).
+    local next_node is node(time:seconds + eta:apoapsis, 0, 0, dv_bounds[1]).
     add next_node.
 }
