@@ -17,18 +17,27 @@ function main {
     local craft_info is make_craft_info().
     print craft_info.
 
-    local desired_periapsis is 90000.0.
+    local fueltank is craft_info[CRAFT_INFO_STAGE_PARTS][1][1].
 
-    local dv_bounds is plan_orbital_insertion_init(desired_periapsis).
-    print dv_bounds.
+    print fueltank:allmodules.
 
-    local allowed_difference is 0.02.
-    until plan_orbital_insertion_has_converged(dv_bounds, allowed_difference) {
-        set dv_bounds to plan_orbital_insertion_refine(dv_bounds, desired_periapsis).
-        print dv_bounds.
-    }
+    print fueltank:getmodulebyindex(4):allfields.
+    print fueltank:getmodulebyindex(5):allfields.
 
-    plan_orbital_insertion_add_node(dv_bounds).
+    print fueltank:resources.
+
+    //local desired_periapsis is 90000.0.
+
+    //local dv_bounds is plan_orbital_insertion_init(desired_periapsis).
+    //print dv_bounds.
+
+    //local allowed_difference is 0.02.
+    //until plan_orbital_insertion_has_converged(dv_bounds, allowed_difference) {
+    //    set dv_bounds to plan_orbital_insertion_refine(dv_bounds, desired_periapsis).
+    //    print dv_bounds.
+    //}
+
+    //plan_orbital_insertion_add_node(dv_bounds).
 }
 
 

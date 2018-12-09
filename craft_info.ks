@@ -12,8 +12,10 @@ global CRAFT_INFO_MAX_STAGE_NUM is "max_stage_num".
 global CRAFT_INFO_DRY_MASS_BY_STAGE is "dry_mass".
 global CRAFT_INFO_WET_MASS_BY_STAGE is "wet_mass".
 global CRAFT_INFO_CUM_MASS_BY_STAGE is "cum_mass".
+global CRAFT_INFO_STAGE_PARTS is "parts".
 global CRAFT_INFO_STAGE_ENGINES is "engines".
 
+// Decoupler modules.
 global PART_MODULE_DECOUPLER is "ModuleDecouple".
 global PART_MODULE_ANCHORED_DECOUPLER is "ModuleAnchoredDecoupler".
 
@@ -24,12 +26,12 @@ function make_craft_info {
     local dry_masses_per_stage is lexicon().
     local wet_masses_per_stage is lexicon().
     local cum_masses_per_stage is lexicon().
+    local parts_per_stage is lexicon().
 
     local stage_engines is list().
 
     for i in range(-1, current_stage + 1) {
-        dry_masses_per_stage:add(i, 0.0).
-        wet_masses_per_stage:add(i, 0.0).
+        parts_per_stage:add(i, list()).
     }
     for i in range(current_stage + 1) {
         stage_engines:add(list()).
@@ -40,14 +42,19 @@ function make_craft_info {
     assert(
         ship:rootpart:stage = root_part_stage_number,
         "Root part was not in stage -1, but was in " + ship:rootpart:stage).
-    _recursively_calculate_stage_masses(
-        part_uid_to_stage, dry_masses_per_stage, wet_masses_per_stage,
-        ship:rootpart, root_part_stage_number).
+    _recursively_calculate_stages(
+        part_uid_to_stage, parts_per_stage, ship:rootpart, root_part_stage_number).
 
     assert(
         ship:parts:length = part_uid_to_stage:length,
         "Ship part count did not match visited part count: " +
         ship:parts:length + " <> " + part_uid_to_stage:length).
+
+    for stage_number in range(-1, current_stage + 1) {
+        local masses is _calculate_dry_and_wet_masses(parts_per_stage[stage_number]).
+        dry_masses_per_stage:add(stage_number, masses[0]).
+        wet_masses_per_stage:add(stage_number, masses[1]).
+    }
 
     set cum_masses_per_stage[-1] to wet_masses_per_stage[-1].
     for i in range(current_stage + 1) {
@@ -66,6 +73,7 @@ function make_craft_info {
         CRAFT_INFO_DRY_MASS_BY_STAGE, dry_masses_per_stage,
         CRAFT_INFO_WET_MASS_BY_STAGE, wet_masses_per_stage,
         CRAFT_INFO_CUM_MASS_BY_STAGE, cum_masses_per_stage,
+        CRAFT_INFO_STAGE_PARTS, parts_per_stage,
         CRAFT_INFO_STAGE_ENGINES, stage_engines).
 
     _craft_info_logger(result).
@@ -73,19 +81,11 @@ function make_craft_info {
 }
 
 
-function _recursively_calculate_stage_masses {
-    parameter part_uid_to_stage, dry_masses_per_stage, wet_masses_per_stage,
-              current_part, current_stage.
+local function _recursively_calculate_stages {
+    parameter part_uid_to_stage, parts_per_stage, current_part, current_stage.
 
     set part_uid_to_stage[current_part:uid] to current_stage.
-
-    if current_part:hasphysics {
-        // Convert masses to kg, since they are listed in tons.
-        set dry_masses_per_stage[current_stage] to (
-            dry_masses_per_stage[current_stage] + (current_part:drymass * 1000)).
-        set wet_masses_per_stage[current_stage] to (
-            wet_masses_per_stage[current_stage] + (current_part:wetmass * 1000)).
-    }
+    parts_per_stage[current_stage]:add(current_part).
 
     for part_info in current_part:children {
         if not part_uid_to_stage:haskey(part_info:uid) {
@@ -100,9 +100,28 @@ function _recursively_calculate_stage_masses {
                 set part_stage to part_info:stage + 1.
             }
 
-            _recursively_calculate_stage_masses(
-                part_uid_to_stage, dry_masses_per_stage, wet_masses_per_stage,
-                part_info, part_stage).
+            _recursively_calculate_stages(
+                part_uid_to_stage, parts_per_stage, part_info, part_stage).
         }
     }
+}
+
+
+local function _calculate_dry_and_wet_masses {
+    parameter parts_list.
+
+    local dry_mass_in_tons is 0.0.
+    local wet_mass_in_tons is 0.0.
+    for current_part in parts_list {
+        if current_part:hasphysics {
+            set dry_mass_in_tons to dry_mass_in_tons + current_part:drymass.
+            set wet_mass_in_tons to wet_mass_in_tons + current_part:wetmass.
+        }
+    }
+
+    // Convert masses to kg before returning.
+    return list(
+        dry_mass_in_tons * 1000,
+        wet_mass_in_tons * 1000
+    ).
 }
