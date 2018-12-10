@@ -14,6 +14,8 @@ global CRAFT_INFO_WET_MASS_BY_STAGE is "wet_mass".
 global CRAFT_INFO_CUM_MASS_BY_STAGE is "cum_mass".
 global CRAFT_INFO_STAGE_PARTS is "parts".
 global CRAFT_INFO_STAGE_ENGINES is "engines".
+global CRAFT_INFO_RESOURCE_AMOUNTS is "res_amount".
+global CRAFT_INFO_RESOURCE_CAPACITIES is "res_caps".
 
 // Decoupler modules.
 global PART_MODULE_DECOUPLER is "ModuleDecouple".
@@ -27,6 +29,8 @@ function make_craft_info {
     local wet_masses_per_stage is lexicon().
     local cum_masses_per_stage is lexicon().
     local parts_per_stage is lexicon().
+    local resources_per_stage is lexicon().
+    local capacities_per_stage is lexicon().
 
     local stage_engines is list().
 
@@ -51,9 +55,14 @@ function make_craft_info {
         ship:parts:length + " <> " + part_uid_to_stage:length).
 
     for stage_number in range(-1, current_stage + 1) {
-        local masses is _calculate_dry_and_wet_masses(parts_per_stage[stage_number]).
+        local parts_in_this_stage is parts_per_stage[stage_number].
+
+        local masses is _calculate_dry_and_wet_masses(parts_in_this_stage).
         dry_masses_per_stage:add(stage_number, masses[0]).
         wet_masses_per_stage:add(stage_number, masses[1]).
+
+        resources_per_stage:add(stage_number, _calculate_resource_amounts(parts_in_this_stage)).
+        capacities_per_stage:add(stage_number, _calculate_resource_capacities(parts_in_this_stage)).
     }
 
     set cum_masses_per_stage[-1] to wet_masses_per_stage[-1].
@@ -74,7 +83,9 @@ function make_craft_info {
         CRAFT_INFO_WET_MASS_BY_STAGE, wet_masses_per_stage,
         CRAFT_INFO_CUM_MASS_BY_STAGE, cum_masses_per_stage,
         CRAFT_INFO_STAGE_PARTS, parts_per_stage,
-        CRAFT_INFO_STAGE_ENGINES, stage_engines).
+        CRAFT_INFO_STAGE_ENGINES, stage_engines,
+        CRAFT_INFO_RESOURCE_AMOUNTS, resources_per_stage,
+        CRAFT_INFO_RESOURCE_CAPACITIES, capacities_per_stage).
 
     _craft_info_logger(result).
     return result.
@@ -124,4 +135,40 @@ local function _calculate_dry_and_wet_masses {
         dry_mass_in_tons * 1000,
         wet_mass_in_tons * 1000
     ).
+}
+
+
+local function _calculate_resource_amounts {
+    parameter parts_list.
+
+    local total_resources is lexicon().
+    for current_part in parts_list {
+        for resource_info in current_part:resources {
+            local resource_name is resource_info:name.
+            local existing_amount is 0.0.
+            if total_resources:haskey(resource_name) {
+                set existing_amount to total_resources[resource_name].
+            }
+            set total_resources[resource_name] to existing_amount + resource_info:amount.
+        }
+    }
+    return total_resources.
+}
+
+
+local function _calculate_resource_capacities {
+    parameter parts_list.
+
+    local total_resources is lexicon().
+    for current_part in parts_list {
+        for resource_info in current_part:resources {
+            local resource_name is resource_info:name.
+            local existing_capacity is 0.0.
+            if total_resources:haskey(resource_name) {
+                set existing_capacity to total_resources[resource_name].
+            }
+            set total_resources[resource_name] to existing_capacity + resource_info:capacity.
+        }
+    }
+    return total_resources.
 }
