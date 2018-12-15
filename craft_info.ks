@@ -46,7 +46,7 @@ function make_craft_info {
     assert(
         ship:rootpart:stage = root_part_stage_number,
         "Root part was not in stage -1, but was in " + ship:rootpart:stage).
-    _recursively_calculate_stages(
+    _recursively_calculate_detachment_stages(
         part_uid_to_stage, parts_per_stage, ship:rootpart, root_part_stage_number).
 
     assert(
@@ -73,8 +73,12 @@ function make_craft_info {
     local engine_list is list().
     list engines in engine_list.
     for engine_part in engine_list {
-        local stage_num is engine_part:stage.
-        stage_engines[stage_num]:add(engine_part).
+        local activation_stage_num is engine_part:stage.
+        local detachment_stage_num is part_uid_to_stage[engine_part:uid].
+
+        for stage_num in range(detachment_stage_num, activation_stage_num + 1) {
+            stage_engines[stage_num]:add(engine_part).
+        }
     }
 
     local result is lexicon(
@@ -92,7 +96,8 @@ function make_craft_info {
 }
 
 
-local function _recursively_calculate_stages {
+local function _recursively_calculate_detachment_stages {
+    // For each part, calculate which stage it gets detached and discarded in.
     parameter part_uid_to_stage, parts_per_stage, current_part, current_stage.
 
     set part_uid_to_stage[current_part:uid] to current_stage.
@@ -111,7 +116,7 @@ local function _recursively_calculate_stages {
                 set part_stage to part_info:stage + 1.
             }
 
-            _recursively_calculate_stages(
+            _recursively_calculate_detachment_stages(
                 part_uid_to_stage, parts_per_stage, part_info, part_stage).
         }
     }
