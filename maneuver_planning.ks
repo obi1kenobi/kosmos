@@ -112,11 +112,16 @@ function plan_maneuver_time_init {
 
     local maneuver_dv_components is list().
     local maneuver_time_components is list().
+    _planning_logger(
+        "Planning " + round(maneuver_dv, 1) + "m/s maneuver starting at stage " + initial_stage).
 
     until remaining_dv = 0.0 or current_stage < 0 {
-        print remaining_dv + " " + current_stage.
-
         local stage_engines is craft_info[CRAFT_INFO_STAGE_ENGINES][current_stage].
+
+        _planning_logger(
+            "Remaining delta-V " + round(remaining_dv, 1) + " at stage " + current_stage +
+            " with " + stage_engines:length +
+            " engines and mass of " + round(pre_burn_mass) + "kg.").
 
         if stage_engines:length > 0 {
             local stage_resources is craft_info[CRAFT_INFO_RESOURCE_AMOUNTS][current_stage].
@@ -125,8 +130,12 @@ function plan_maneuver_time_init {
             local stage_max_burn_time is get_engines_max_burn_time(stage_engines, stage_resources).
             local stage_thrust is get_engines_max_vacuum_thrust(stage_engines).
 
+            _planning_logger("Max stage burn time: " + round(stage_max_burn_time, 1) + "s.").
+
             local post_stage_burn_mass is (
                 pre_burn_mass - (stage_max_flow_rate * stage_max_burn_time)).
+            _planning_logger("Post burn mass: " + round(post_stage_burn_mass) + "kg.").
+
             local applied_dv is calculate_delta_v(
                 stage_thrust, pre_burn_mass, post_stage_burn_mass, stage_max_flow_rate).
 

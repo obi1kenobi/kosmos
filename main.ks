@@ -1,10 +1,11 @@
 @LAZYGLOBAL OFF.
 
-run once stdlib.
-run once os.
-run once engine_info.
 run once craft_info.
+run once engine_info.
 run once logging.
+run once maneuver_planning.
+run once os.
+run once stdlib.
 
 
 global DIRECTOR_MODE_PRE_LAUNCH is "prelaunch".
@@ -100,6 +101,7 @@ function guidance_gravity_turn {
 
     if ship:orbit:apoapsis >= coast_ap_altitude {
         set REQUESTED_MODE to DIRECTOR_MODE_COAST_TO_AP.
+        set desired_throttle to 0.0.
     } else if ship:altitude >= orbit_prograde_start and ship:altitude <= orbit_prograde_end {
         local coeff is rescale_to_fraction_of_unity(
             ship:altitude, orbit_prograde_start, orbit_prograde_end).
@@ -117,99 +119,38 @@ function guidance_gravity_turn {
 local function _calculate_circularization_maneuver {
     // Plan the circularization maneuver, since there either currently isn't one
     // or the existing one isn't satisfactory.
-    local prograde_maneuver_dv is 0.0.
-    local maneuver_periapsis is ship:orbit:periapsis.
-    local maneuver_apoapsis is ship:orbit:apoapsis.
-    if hasnode {
-        set maneuver_periapsis to nextnode:orbit:periapsis.
-        set maneuver_apoapsis to nextnode:orbit:apoapsis.
-        set prograde_maneuver_dv to nextnode:prograde.
+    parameter desired_periapsis.
 
+    if hasnode {
         remove nextnode.
     }
 
-    if maneuver_periapsis <= -50000 {
-        set prograde_maneuver_dv to prograde_maneuver_dv + 100.0.
-    } else if maneuver_periapsis <= 30000 {
-        set prograde_maneuver_dv to prograde_maneuver_dv + 10.0.
-    } else if maneuver_periapsis <= 80000 {
-        set prograde_maneuver_dv to prograde_maneuver_dv + 1.0.
-    } else {
-        set prograde_maneuver_dv to prograde_maneuver_dv + 0.1.
+    local dv_bounds is plan_orbital_insertion_init(desired_periapsis).
+    local allowed_dv_error is 0.02.
+    until plan_orbital_insertion_has_converged(dv_bounds, allowed_dv_error) {
+        set dv_bounds to plan_orbital_insertion_refine(dv_bounds, desired_periapsis).
     }
 
-    local new_node is node(time:seconds + eta:apoapsis, 0, 0, prograde_maneuver_dv).
-    add new_node.
+    plan_orbital_insertion_add_node(dv_bounds).
 }
 
 
 local function _calculate_burn_start_time {
-    parameter maneuver_dv, maneuver_eta.
-
     // Estimate the burn time for the maneuver, and switch to
     // circularization mode at the right time.
-    local total_burn_time is 0.0.
+    parameter maneuver_dv, maneuver_eta.
 
-    local stage_number is stage:number.
-    local stage_engines is CRAFT_INFO[CRAFT_INFO_STAGE_ENGINES][stage_number].
+    local maneuver_args is plan_maneuver_time_init(craft_info, maneuver_dv).
+    local allowed_time_error is 0.1.
 
-    local pre_burn_mass is ship:mass * 1000.  // convert to kg
-    local stage_max_flow_rate is get_engines_max_mass_flow_rate(stage_engines).
-    local stage_max_burn_time is get_engines_max_burn_time(stage_engines, stage:resourceslex).
-    local stage_thrust is get_engines_max_vacuum_thrust(stage_engines).
-
-    local needed_stage_burn_time is calculate_single_stage_burn_time(
-        stage_thrust, pre_burn_mass, stage_max_flow_rate, maneuver_dv).
-
-    local new_status_line is "".
-
-    if needed_stage_burn_time <= stage_max_burn_time {
-        set total_burn_time to needed_stage_burn_time.
-        set new_status_line to (
-            "single stage burn of " + round(needed_stage_burn_time, 3) +
-            "s (" + round(maneuver_dv, 3) + "m/s)"
-        ).
-    } else {
-        local next_stage_number is stage_number - 1.
-        assert(
-            next_stage_number >= 0,
-            "need another stage to circularize orbit: " +
-            round(needed_stage_burn_time, 3) + " > " + round(stage_max_burn_time, 3)).
-        local next_stage_engines is CRAFT_INFO[CRAFT_INFO_STAGE_ENGINES][next_stage_number].
-        assert(
-            next_stage_engines:length > 0,
-            "no engines on next stage: " + next_stage_engines).
-
-        local post_stage_burn_mass is (
-            pre_burn_mass - (stage_max_flow_rate * stage_max_burn_time)).
-        local applied_dv is calculate_delta_v(
-            stage_thrust, pre_burn_mass, post_stage_burn_mass, stage_max_flow_rate).
-        local remaining_dv is maneuver_dv - applied_dv.
-        assert(
-            remaining_dv > 0.0,
-            "remaining delta v was not positive: " + remaining_dv).
-
-        local next_max_flow_rate is get_engines_max_mass_flow_rate(next_stage_engines).
-        local next_thrust is get_engines_max_vacuum_thrust(next_stage_engines).
-
-        // FIXME: This number assumes that the next stage is entirely unused.
-        //        This is an invalid assumption, e.g. in Soyuz-like staging.
-        local next_pre_burn_mass is CRAFT_INFO[CRAFT_INFO_CUM_MASS_BY_STAGE][next_stage_number].
-
-        local next_burn_time is calculate_single_stage_burn_time(
-            next_thrust, next_pre_burn_mass, next_max_flow_rate, remaining_dv).
-        set total_burn_time to stage_max_burn_time + next_burn_time.
-
-        set new_status_line to (
-            "two stage burn of " + round(total_burn_time, 3) + "s: " +
-            round(stage_max_burn_time, 3) + "s (" + round(applied_dv, 3) + "m/s) + " +
-            round(next_burn_time, 3) + "s (" + round(remaining_dv, 3) + "m/s)"
-        ).
+    until plan_maneuver_time_has_converged(maneuver_args, allowed_time_error) {
+        set maneuver_args to plan_maneuver_time_refine(craft_info, maneuver_args).
     }
+    local maneuver_early_start_time is plan_maneuver_time_finalize(maneuver_args).
 
-    local eta_to_burn is maneuver_eta - (total_burn_time / 2).
+    local eta_to_burn is maneuver_eta - maneuver_early_start_time.
 
-    set STATUS_LINE to new_status_line + "; eta to burn: " + round(eta_to_burn, 3).
+    set STATUS_LINE to "eta to burn: " + round(eta_to_burn, 3).
 
     return eta_to_burn.
 }
@@ -234,7 +175,8 @@ function guidance_coast_to_ap {
 
     local min_desired_periapsis is min(90000, ship:orbit:apoapsis).
     if not hasnode or nextnode:orbit:periapsis < min_desired_periapsis {
-        _calculate_circularization_maneuver().
+        refresh_craft_info().
+        _calculate_circularization_maneuver(min_desired_periapsis).
     } else {
         local maneuver_dv is nextnode:deltav:mag.
         local maneuver_eta is nextnode:eta.

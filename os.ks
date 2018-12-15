@@ -10,6 +10,11 @@ global THROTTLE_SETTING is 0.0.
 global STEERING_SETTING is ship:facing.
 
 
+function refresh_craft_info {
+    set CRAFT_INFO to make_craft_info().
+}
+
+
 function stage_and_refresh_info {
     stage.
 
@@ -17,7 +22,7 @@ function stage_and_refresh_info {
         wait 0.
     }
 
-    set CRAFT_INFO to make_craft_info().
+    refresh_craft_info().
 }
 
 

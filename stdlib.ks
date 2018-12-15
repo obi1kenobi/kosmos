@@ -57,7 +57,7 @@ function calculate_ts_rate {
 function calculate_single_stage_burn_time {
     parameter thrust, pre_burn_mass, mass_flow_rate, delta_v.
 
-    assert(thrust > 0.0, "thrust must be positive, but was: " + thrust).
+    assert(thrust > 0.0, "Thrust must be positive, but was: " + thrust).
 
     // First, apply the rocket equation to calculate the necessary mass fraction for the burn.
     local ln_mass_fraction is (delta_v * mass_flow_rate) / thrust.
@@ -79,6 +79,7 @@ function calculate_delta_v {
     parameter thrust, pre_burn_mass, post_burn_mass, mass_flow_rate.
 
     assert(mass_flow_rate > 0.0, "Mass flow rate must be positive, but was: " + mass_flow_rate).
+    assert(post_burn_mass > 0.0, "Post-burn mass must be positive, but was: " + post_burn_mass).
 
     // Direct application of the rocket equation.
     local ln_mass_fraction is ln(pre_burn_mass / post_burn_mass).
