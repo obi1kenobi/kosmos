@@ -78,6 +78,8 @@ function calculate_single_stage_burn_time {
 function calculate_delta_v {
     parameter thrust, pre_burn_mass, post_burn_mass, mass_flow_rate.
 
+    assert(mass_flow_rate > 0.0, "Mass flow rate must be positive, but was: " + mass_flow_rate).
+
     // Direct application of the rocket equation.
     local ln_mass_fraction is ln(pre_burn_mass / post_burn_mass).
     return thrust * ln_mass_fraction / mass_flow_rate.

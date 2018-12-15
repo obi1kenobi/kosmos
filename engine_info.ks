@@ -78,12 +78,29 @@ function get_engines_max_mass_flow_rate {
 function get_engines_max_burn_time {
     parameter engine_list, resourceslex.
 
+    local total_liquid_fuel is 0.0.
+    local total_oxidizer is 0.0.
+    local total_monopropellant is 0.0.
+    local total_solid_fuel is 0.0.
+    if resourceslex:haskey("liquidfuel") {
+        set total_liquid_fuel to resourceslex["liquidfuel"].
+    }
+    if resourceslex:haskey("oxidizer") {
+        set total_oxidizer to resourceslex["oxidizer"].
+    }
+    if resourceslex:haskey("monopropellant") {
+        set total_monopropellant to resourceslex["monopropellant"].
+    }
+    if resourceslex:haskey("solidfuel") {
+        set total_solid_fuel to resourceslex["solidfuel"].
+    }
+
     local total_consumption is list(0.0, 0.0, 0.0, 0.0).
     local total_resources is list(
-        resourceslex["liquidfuel"]:amount,
-        resourceslex["oxidizer"]:amount,
-        resourceslex["monopropellant"]:amount,
-        resourceslex["solidfuel"]:amount
+        total_liquid_fuel,
+        total_oxidizer,
+        total_monopropellant,
+        total_solid_fuel
     ).
     assert(
         total_consumption:length = total_resources:length,
