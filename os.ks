@@ -117,7 +117,6 @@ function print_craft_state {
     local ship_heading is craft_state[CRAFT_STATE_HEADING].
     local ship_pitch is craft_state[CRAFT_STATE_PITCH].
     local lateral_pressure is craft_state[CRAFT_STATE_LATERAL_AIR_PRESSURE].
-    local mass_flow_rate is craft_state[CRAFT_STATE_MASS_FLOW_RATE].
     local steering_error is craft_state[CRAFT_STATE_STEERING_ERROR].
 
     print("STATUS:             " + status_line) at (0, 0).
@@ -127,6 +126,5 @@ function print_craft_state {
     print("Lateral pressure:   " + round(lateral_pressure, 8)) at (0, 6).
     print("Desired steering:   " + desired_steering) at (0, 7).
     print("Desired throttle:   " + round(desired_throttle, 2)) at (0, 8).
-    print("Mass flow rate:     " + round(mass_flow_rate, 6)) at (0, 9).
-    print("Steering error:     " + round(steering_error, 2)) at (0, 10).
+    print("Steering error:     " + round(steering_error, 2)) at (0, 9).
 }

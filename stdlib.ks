@@ -74,3 +74,15 @@ function calculate_delta_v {
     local ln_mass_fraction is ln(pre_burn_mass / post_burn_mass).
     return thrust * ln_mass_fraction / mass_flow_rate.
 }
+
+
+function get_or_default {
+    // Get the value of the given key in the lexicon, or return a default if the key is not present.
+    parameter lex, key, default_value.
+
+    if lex:haskey(key) {
+        return lex[key].
+    } else {
+        return default_value.
+    }
+}

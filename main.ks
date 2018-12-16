@@ -49,10 +49,14 @@ function control_func_base {
         local capacities_in_stage is CRAFT_INFO[CRAFT_INFO_RESOURCE_CAPACITIES][stage_number].
 
         local should_stage_for_liquid_fuel is (
-            resources_in_stage["liquidfuel"] < 0.1 and capacities_in_stage["liquidfuel"] > 0.0).
+            get_or_default(resources_in_stage, "liquidfuel", 0.0) < 0.1 and
+            get_or_default(capacities_in_stage, "liquidfuel", 0.0) > 0.0
+        ).
 
         local should_stage_for_solid_fuel is (
-            resources_in_stage["solidfuel"] < 0.1 and capacities_in_stage["solidfuel"] > 0.0).
+            get_or_default(resources_in_stage, "solidfuel", 0.0) < 0.1 and
+            get_or_default(capacities_in_stage, "solidfuel", 0.0) > 0.0
+        ).
 
         if should_stage_for_liquid_fuel or should_stage_for_solid_fuel {
             stage_and_refresh_info().

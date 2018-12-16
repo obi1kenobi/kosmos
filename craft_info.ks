@@ -100,8 +100,12 @@ function update_stage_resource_amounts {
     parameter craft_info, stage_number.
 
     local parts_in_this_stage is craft_info[CRAFT_INFO_STAGE_PARTS][stage_number].
+    local stage_resource_amounts is _calculate_resource_amounts(parts_in_this_stage).
 
-    set craft_info[CRAFT_INFO_RESOURCE_AMOUNTS] to _calculate_resource_amounts(parts_in_this_stage).
+    _craft_info_logger(
+        "Updating stage " + stage_number +
+        " resource amounts: " + stage_resource_amounts).
+    set craft_info[CRAFT_INFO_RESOURCE_AMOUNTS][stage_number] to stage_resource_amounts.
 }
 
 
