@@ -42,15 +42,17 @@ function control_func_base {
     }
 
     if staging_enabled {
-        local resourceslex is stage:resourceslex.
+        refresh_current_stage_resource_amounts().
 
-        local liquid_fuel is resourceslex["liquidfuel"].
+        local stage_number is stage:number.
+        local resources_in_stage is CRAFT_INFO[CRAFT_INFO_RESOURCE_AMOUNTS][stage_number].
+        local capacities_in_stage is CRAFT_INFO[CRAFT_INFO_RESOURCE_CAPACITIES][stage_number].
+
         local should_stage_for_liquid_fuel is (
-            liquid_fuel:amount < 0.1 and liquid_fuel:capacity > 0.0).
+            resources_in_stage["liquidfuel"] < 0.1 and capacities_in_stage["liquidfuel"] > 0.0).
 
-        local solid_fuel is resourceslex["solidfuel"].
         local should_stage_for_solid_fuel is (
-            solid_fuel:amount < 0.1 and solid_fuel:capacity > 0.0).
+            resources_in_stage["solidfuel"] < 0.1 and capacities_in_stage["solidfuel"] > 0.0).
 
         if should_stage_for_liquid_fuel or should_stage_for_solid_fuel {
             stage_and_refresh_info().
@@ -121,6 +123,8 @@ local function _calculate_circularization_maneuver {
     // or the existing one isn't satisfactory.
     parameter desired_periapsis.
 
+    refresh_current_stage_resource_amounts().
+
     if hasnode {
         remove nextnode.
     }
@@ -175,7 +179,6 @@ function guidance_coast_to_ap {
 
     local min_desired_periapsis is min(90000, ship:orbit:apoapsis).
     if not hasnode or nextnode:orbit:periapsis < min_desired_periapsis {
-        refresh_craft_info().
         _calculate_circularization_maneuver(min_desired_periapsis).
     } else {
         local maneuver_dv is nextnode:deltav:mag.

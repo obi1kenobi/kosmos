@@ -15,6 +15,11 @@ function refresh_craft_info {
 }
 
 
+function refresh_current_stage_resource_amounts {
+    update_stage_resource_amounts(CRAFT_INFO, stage:number).
+}
+
+
 function stage_and_refresh_info {
     stage.
 
