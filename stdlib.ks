@@ -43,17 +43,6 @@ function rescale_to_fraction_of_unity {
 }
 
 
-function calculate_ts_rate {
-    parameter last_craft_history, current_craft_history, time_key, value_key.
-
-    local time_step is current_craft_history[time_key] - last_craft_history[time_key].
-    if time_step = 0.0 {
-        return 0.0.
-    }
-    return (current_craft_history[value_key] - last_craft_history[value_key]) / time_step.
-}
-
-
 function calculate_single_stage_burn_time {
     parameter thrust, pre_burn_mass, mass_flow_rate, delta_v.
 

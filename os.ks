@@ -54,59 +54,15 @@ function make_craft_control_struct {
 }
 
 
-global CRAFT_HISTORY_TIMESTAMP is "timestamp".
-global CRAFT_HISTORY_MASS_KG is "mass".
-global CRAFT_HISTORY_STAGE_NUMBER is "stage".
-global CRAFT_HISTORY_STAGE_LIQUID_FUEL is "stage_liquid_fuel".
-global CRAFT_HISTORY_STAGE_OXIDIZER is "stage_oxidizer".
-global CRAFT_HISTORY_THROTTLE is "throttle".
-
-
-function make_craft_history_entry {
-    parameter current_throttle.
-
-    local history is lexicon().
-
-    local captured_valid_data is false.
-
-    local timestamp is 0.
-    local mass_at_ts is 0.
-    local stage_number is 0.
-    local stage_liquid_fuel is 0.
-    local stage_oxidizer is 0.
-
-    until captured_valid_data {
-        set timestamp to time:seconds.
-        set mass_at_ts to ship:mass * 1000.
-        set stage_number to stage:number.
-        set stage_liquid_fuel to stage:resourceslex["liquidfuel"]:amount.
-        set stage_oxidizer to stage:resourceslex["oxidizer"]:amount.
-        set captured_valid_data to (timestamp = time:seconds).
-    }
-
-    history:add(CRAFT_HISTORY_TIMESTAMP, timestamp).
-    history:add(CRAFT_HISTORY_MASS_KG, mass_at_ts).
-    history:add(CRAFT_HISTORY_STAGE_NUMBER, stage_number).
-    history:add(CRAFT_HISTORY_STAGE_LIQUID_FUEL, stage_liquid_fuel).
-    history:add(CRAFT_HISTORY_STAGE_OXIDIZER, stage_oxidizer).
-    history:add(CRAFT_HISTORY_THROTTLE, current_throttle).
-
-    return history.
-}.
-
-
 global CRAFT_STATE_ANGLE_FROM_ORB_PROGRADE is "angle_from_orb".
 global CRAFT_STATE_ANGLE_FROM_SRF_PROGRADE is "angle_from_srf".
 global CRAFT_STATE_HEADING is "heading".
 global CRAFT_STATE_PITCH is "pitch".
 global CRAFT_STATE_LATERAL_AIR_PRESSURE is "lateral_pressure".
-global CRAFT_STATE_MASS_FLOW_RATE is "mass_flow_rate".
 global CRAFT_STATE_STEERING_ERROR is "steering_error".
 
 
 function make_craft_state_struct {
-    parameter craft_history.
-
     local craft_state is lexicon().
 
     local ship_vector is ship:facing:forevector.
@@ -142,15 +98,6 @@ function make_craft_state_struct {
     local total_pressure is ship:dynamicpressure + ship:body:atm:altitudepressure(ship:altitude).
     local lateral_pressure is sin(angle_from_srf) * total_pressure.
     craft_state:add(CRAFT_STATE_LATERAL_AIR_PRESSURE, lateral_pressure).
-
-    local current_history is craft_history[craft_history:length - 1].
-    local last_history is craft_history[craft_history:length - 2].
-    local mass_flow_rate is 0.0.
-    if current_history[CRAFT_HISTORY_STAGE_NUMBER] = last_history[CRAFT_HISTORY_STAGE_NUMBER] {
-        set mass_flow_rate to calculate_ts_rate(
-            last_history, current_history, CRAFT_HISTORY_TIMESTAMP, CRAFT_HISTORY_MASS_KG).
-    }
-    craft_state:add(CRAFT_STATE_MASS_FLOW_RATE, mass_flow_rate).
 
     return craft_state.
 }

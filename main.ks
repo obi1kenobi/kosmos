@@ -293,7 +293,6 @@ function main {
         staging_disabled_control_func@,
         list()
     ).
-    local craft_history is list(make_craft_history_entry(THROTTLE_SETTING)).
 
     local desired_steering is ship:up.
     local desired_throttle is 1.0.
@@ -303,10 +302,9 @@ function main {
     set REQUESTED_MODE to DIRECTOR_MODE_CLEAR_TOWER.
 
     until false {
-        local craft_history_entry is make_craft_history_entry(THROTTLE_SETTING).
-        craft_history:add(craft_history_entry).
+        local loop_start_time is time:seconds.
 
-        local craft_state is make_craft_state_struct(craft_history).
+        local craft_state is make_craft_state_struct().
         craft_state_logger(craft_state).
 
         craft_control[CRAFT_CONTROL_DIRECTOR_FUNC_NAME](
@@ -321,7 +319,10 @@ function main {
 
         print_craft_state(status_line, craft_state, desired_steering, desired_throttle).
 
-        local loop_time is time:seconds - craft_history_entry[CRAFT_HISTORY_TIMESTAMP].
+        local loop_end_time is time:seconds.
+
+        local loop_time is loop_end_time - loop_start_time.
+        set loop_start_time to loop_end_time.
         main_loop_logger("Loop time: " + round(loop_time, 3)).
 
         wait 0.
