@@ -70,17 +70,21 @@ local staging_disabled_control_func is control_func_base@:bind(false).
 
 
 function guidance_off_the_pad {
+    parameter data, loop_time.
+
     local desired_throttle is 1.0.
     local desired_steering is ship:up.
 
     if ship:velocity:surface:mag >= 65 {
         set REQUESTED_MODE to DIRECTOR_MODE_PITCH_PROGRAM.
     }
-    return list(desired_steering, desired_throttle).
+    return list(desired_steering, desired_throttle, list()).
 }
 
 
 function guidance_pitch_program {
+    parameter data, loop_time.
+
     local pitch_degree is 5.0.
     local desired_throttle is 1.0.
     local desired_steering is angleaxis(-pitch_degree, ship:north:forevector) * ship:up.
@@ -93,11 +97,13 @@ function guidance_pitch_program {
         set REQUESTED_MODE to DIRECTOR_MODE_GRAVITY_TURN.
     }
 
-    return list(desired_steering, desired_throttle).
+    return list(desired_steering, desired_throttle, list()).
 }
 
 
 function guidance_gravity_turn {
+    parameter data, loop_time.
+
     local desired_throttle is 1.0.
     local desired_steering is ship:srfprograde.
 
@@ -118,7 +124,7 @@ function guidance_gravity_turn {
         set desired_steering to ship:prograde.
     }
 
-    return list(desired_steering, desired_throttle).
+    return list(desired_steering, desired_throttle, list()).
 }
 
 
@@ -165,6 +171,8 @@ local function _calculate_burn_start_time {
 
 
 function guidance_coast_to_ap {
+    parameter data, loop_time.
+
     local desired_steering is ship:srfprograde.
     local desired_throttle is 0.0.
 
@@ -199,16 +207,22 @@ function guidance_coast_to_ap {
             set desired_steering to nextnode:deltav:normalized.
         }
 
-        if eta_to_burn < 0.1 {
+        if eta_to_burn <= loop_time {
+            if eta_to_burn > 0.2 {
+                wait (eta_to_burn - 0.1).
+            }
+
             set REQUESTED_MODE to DIRECTOR_MODE_CIRCULARIZE.
         }
     }
 
-    return list(desired_steering, desired_throttle).
+    return list(desired_steering, desired_throttle, list()).
 }
 
 
 function guidance_prograde_node_burn {
+    parameter data, loop_time.
+
     assert(hasnode, "no maneuver node was found").
 
     local desired_steering is nextnode:deltav:normalized.
@@ -227,15 +241,17 @@ function guidance_prograde_node_burn {
         set desired_throttle to 0.3.
     }
 
-    return list(desired_steering, desired_throttle).
+    return list(desired_steering, desired_throttle, list()).
 }
 
 
 function guidance_done {
+    parameter data, loop_time.
+
     local desired_steering is ship:prograde.
     local desired_throttle is 0.0.
 
-    return list(desired_steering, desired_throttle).
+    return list(desired_steering, desired_throttle, list()).
 }
 
 
@@ -303,6 +319,9 @@ function main {
     set STEERING_SETTING to desired_steering.
     set THROTTLE_SETTING to desired_throttle.
 
+    local guidance_data is list().
+    local loop_time is 0.01.
+
     set REQUESTED_MODE to DIRECTOR_MODE_CLEAR_TOWER.
 
     until false {
@@ -314,10 +333,12 @@ function main {
         craft_control[CRAFT_CONTROL_DIRECTOR_FUNC_NAME](
             craft_control, craft_state, desired_steering, desired_throttle).
 
-        local guidance_info is craft_control[CRAFT_CONTROL_GUIDANCE_FUNC_NAME]().
+        local guidance_info is craft_control[CRAFT_CONTROL_GUIDANCE_FUNC_NAME](
+            guidance_data, loop_time).
         craft_guidance_logger(guidance_info).
         set desired_steering to guidance_info[0].
         set desired_throttle to guidance_info[1].
+        set guidance_data to guidance_info[2].
         craft_control[CRAFT_CONTROL_CONTROL_FUNC_NAME](
             craft_state, desired_steering, desired_throttle).
 
@@ -325,7 +346,7 @@ function main {
 
         local loop_end_time is time:seconds.
 
-        local loop_time is loop_end_time - loop_start_time.
+        set loop_time to loop_end_time - loop_start_time.
         set loop_start_time to loop_end_time.
         main_loop_logger("Loop time: " + round(loop_time, 3)).
 
