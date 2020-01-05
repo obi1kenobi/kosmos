@@ -29,7 +29,7 @@
 		},
 		"solidBooster", {
 			"entries": [
-				"title", "LV-T30 \"Reliant\" Liquid Fuel Engine",
+				"title", "RT-10 \"Hammer\" Solid Fuel Booster",
 				"type", "solid",
 				"max_propellant_flow", 15.81,
 				"vacuum_isp", 190
