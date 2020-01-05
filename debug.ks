@@ -24,10 +24,13 @@ function main {
     local relative_inclination is get_ship_relative_inclination_trig(target).
     print relative_inclination.
 
-    until false {
-        set relative_inclination to get_ship_relative_inclination_trig(target).
-        print relative_inclination.
-    }
+    local orbit_nodes is get_ship_relative_orbit_nodes(target).
+    print orbit_nodes.
+
+    //until false {
+    //    set relative_inclination to get_ship_relative_inclination_trig(target).
+    //    print relative_inclination.
+    //}
 
     //set kuniverse:timewarp:mode to "rails".
     //set kuniverse:timewarp:warp to 5.

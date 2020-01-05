@@ -31,6 +31,13 @@ function clamp {
 }
 
 
+function positive_remainder {
+    parameter value, modulus.
+
+    return mod(mod(value, modulus) + modulus, modulus).
+}
+
+
 function rescale_to_fraction_of_unity {
     parameter value, bound_lo, bound_hi.
 

@@ -71,3 +71,59 @@ function get_ship_relative_inclination_orbit_normals {
 
     return vang(ship_orbit_normal, target_orbit_normal).
 }
+
+
+function get_ship_relative_orbit_nodes {
+    parameter target_orbitable.
+
+    local common_parent_body is ship:body.
+    assert(
+        target_orbitable:hasbody,
+        "Target " + target_orbitable:name + " does not have a parent body. " +
+        "Cannot calculate relative inclination.").
+    assert(
+        common_parent_body = target_orbitable:body,
+        "Target " + target_orbitable:name + " and the ship do not have a common parent body. " +
+        "Ship parent: " + ship:body:name + "; target parent: " + target_orbitable:body:name).
+
+    // Using formulae 4.75-4.77 from the following website:
+    // http://www.braeunig.us/space/orbmech.htm#maneuver
+    local ship_lan is ship:orbit:lan.
+    local ship_inclination is ship:orbit:inclination.
+    local target_lan is target:orbit:lan.
+    local target_inclination is target:orbit:inclination.
+
+    local sin_ship_inclination is sin(ship_inclination).
+    local ship_parameters is V(
+        sin_ship_inclination * cos(ship_lan),
+        sin_ship_inclination * sin(ship_lan),
+        cos(ship_inclination)
+    ).
+
+    local sin_target_inclination is sin(target_inclination).
+    local target_parameters is V(
+        sin_target_inclination * cos(target_lan),
+        sin_target_inclination * sin(target_lan),
+        cos(target_inclination)
+    ).
+
+    local components is vcrs(ship_parameters, target_parameters).
+
+    local lat1 is arctan(
+        components:z /
+        sqrt((components:x * components:x) + (components:y * components:y))
+    ).
+    local long_adjustment is 90.
+    if components:x > 0 {
+        set long_adjustment to 270.
+    }
+    local long1 is arctan(components:y / components:x) + long_adjustment.
+
+    local lat2 is -lat1.
+    local long2 is long1 + 180.
+
+    return list(
+        list(positive_remainder(lat1, 360), positive_remainder(long1, 360)),
+        list(positive_remainder(lat2, 360), positive_remainder(long2, 360))
+    ).
+}
