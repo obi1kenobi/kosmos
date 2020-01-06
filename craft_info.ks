@@ -31,14 +31,13 @@ function make_craft_info {
     local parts_per_stage is lexicon().
     local resources_per_stage is lexicon().
     local capacities_per_stage is lexicon().
-
-    local stage_engines is list().
+    local stage_engines is lexicon().
 
     for i in range(-1, current_stage + 1) {
         parts_per_stage:add(i, list()).
     }
-    for i in range(current_stage + 1) {
-        stage_engines:add(list()).
+    for i in range(-1, current_stage + 1) {
+        stage_engines:add(i, list()).
     }
 
     local part_uid_to_stage is lexicon().
